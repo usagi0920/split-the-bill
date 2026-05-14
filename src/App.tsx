@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Button, TextField, Select, MenuItem, FormControl, InputLabel, Box, List, ListItem, ListItemText, Divider, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import IconButton from '@mui/material/IconButton';
+import DeleteIcon from '@mui/icons-material/Delete';
 import './App.css'
 
 interface Payment{
   id: number;
-  payer: string;
+  payerId: 'user1' | 'user2';
   title: string;
   amount: number;
 }
@@ -15,7 +17,7 @@ function App() {
   const [name2, setName2] = useState<string>('ユーザーB');
 
   const[payments, setPayments] = useState<Payment[]>([]);
-  const[inputPayer, setInputPayer] = useState<string>('');
+  const[inputPayer, setInputPayer] = useState<string>('user1');
   const[inputTitle, setInputTitle] = useState<string>('');
   const[inputAmount, setInputAmount] = useState<number>(0);
 
@@ -27,7 +29,7 @@ function App() {
 
     const newPayment: Payment = {
       id: Date.now(),
-      payer: inputPayer,
+      payerId: inputPayer as 'user1' | 'user2',
       title: inputTitle,
       amount: inputAmount,
     };
@@ -39,13 +41,21 @@ function App() {
 
   }
 
+  const handleDeletePayment = (id: number) => {
+    // paymentsのリストの中から、指定されたidと一致しないものを残す
+    const newPayments = payments.filter((p)=> p.id !== id);
+
+    // 新しいリストでstateを更新
+    setPayments(newPayments);
+  }
+
   let total1 = 0;
   let total2 = 0;
 
   payments.forEach((p)=>{
-    if (p.payer === name1){
+    if (p.payerId === 'user1'){
       total1 += p.amount;
-    } else if (p.payer === name2){
+    } else if (p.payerId === 'user2'){ // ここはelseで分岐書かなくても良い
       total2 += p.amount;
     }
   })
@@ -76,7 +86,7 @@ function App() {
           label="2人目の名前"
           variant="standard"
           value={name2}
-          onChange={(e) => setName1(e.target.value)}
+          onChange={(e) => setName2(e.target.value)}
           fullWidth
         />
       </Box>
@@ -89,8 +99,8 @@ function App() {
             label="払った人"
             onChange={(e) => setInputPayer(e.target.value)}
           >
-            <MenuItem value={name1}>{name1}</MenuItem>
-            <MenuItem value={name2}>{name2}</MenuItem>
+            <MenuItem value="user1">{name1}</MenuItem>
+            <MenuItem value="user2">{name2}</MenuItem>
           </Select>
         </FormControl>
 
@@ -106,7 +116,11 @@ function App() {
           type="number" 
           variant="outlined" 
           value={inputAmount === 0 ? '' : inputAmount} 
-          onChange={(e) => setInputAmount(Number(e.target.value))} 
+          onChange={(e) => {
+            const val = Number(e.target.value);
+            if (val < 0) return;
+            setInputAmount(val);
+          }}
           slotProps={{
             htmlInput: { min: 0 }
           }}
@@ -125,24 +139,39 @@ function App() {
 
       <List>
         {payments.map((p) => (
-          <ListItem key={p.id}>
+          <ListItem
+            key={p.id}
+            secondaryAction={ // リストの右端にボタンを置く設定
+              <IconButton edge="end" aria-label="delete" onClick={() => handleDeletePayment(p.id)}>
+                <DeleteIcon />
+              </IconButton>
+            }
+          >
             <ListItemText 
-              primary={`${p.payer} さんが 「${p.title}」 に${p.amount.toLocaleString()}円 払いました`} 
+              primary={`${p.payerId === 'user1' ? name1 : name2} さんが 「${p.title}」 に${p.amount.toLocaleString()}円 払った`} 
             />
           </ListItem>
         ))}
       </List>
 
-      <Box sx={{mt:4, p:2, bgcollor:'#f0f7ff', borderRadius: 2  }}>
+      <Box sx={{mt:4, p:2, bgcolor:'#f0f7ff', borderRadius: 2  }}>
+        <Typography variant="h6">合計金額</Typography>
+
+        
+          <Typography>合計{totalAmount.toLocaleString()}円</Typography>
+            <Typography>内訳：{name1} さん{total1.toLocaleString()}円、{name2} さん {total2.toLocaleString()}円</Typography>
+      </Box>
+
+      <Box sx={{mt:4, p:2, bgcolor:'#f0f7ff', borderRadius: 2  }}>
         <Typography variant="h6">精算結果</Typography>
 
         {diff > 0?(
           <Typography>
-            {name2}→{name1}へ<strong>{diff.toLocaleString()}円渡してね</strong>
+            {name2}が{name1}へ<strong>{diff.toLocaleString()}円渡す</strong>
           </Typography>
         ) : diff < 0 ? (
           <Typography>
-          {name1}から{name2}へ<strong>{Math.abs(diff).toLocaleString()}円渡してね</strong>
+          {name1}が{name2}へ<strong>{Math.abs(diff).toLocaleString()}円渡す</strong>
           </Typography>
         ) : (
           <Typography>ピッタリ</Typography>
