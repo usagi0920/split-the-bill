@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button, TextField, Select, MenuItem, FormControl, InputLabel, Box, List, ListItem, ListItemText, Divider, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import IconButton from '@mui/material/IconButton';
@@ -16,7 +16,13 @@ function App() {
   const [name1, setName1] = useState<string>('ユーザーA');
   const [name2, setName2] = useState<string>('ユーザーB');
 
-  const[payments, setPayments] = useState<Payment[]>([]);
+  const[payments, setPayments] = useState<Payment[]>(() => {
+    const savedData = localStorage.getItem('split-bill-data');
+    if (savedData){
+      return JSON.parse(savedData);
+    }
+    return[];
+  });
   const[inputPayer, setInputPayer] = useState<string>('user1');
   const[inputTitle, setInputTitle] = useState<string>('');
   const[inputAmount, setInputAmount] = useState<number>(0);
@@ -63,6 +69,10 @@ function App() {
   const totalAmount = total1 + total2;
   const average = totalAmount / 2;
   const diff = total1 - average;
+
+  useEffect(() => {
+    localStorage.setItem('split-bill-data', JSON.stringify(payments));
+  }, [payments]);
 
   return (
     <Box sx={{ p: 3, maxWidth: 500, margin: '0 auto' }}>
