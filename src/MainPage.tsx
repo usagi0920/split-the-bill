@@ -1,18 +1,27 @@
 import { useState, useEffect } from 'react'
-import { Button, TextField, Select, MenuItem, FormControl, InputLabel, Box, List, ListItem, ListItemText, Divider, Typography } from '@mui/material';
+import { Button, TextField, Select, MenuItem, FormControl, InputLabel, Box, List, ListItem, ListItemText, Divider, Typography, Tabs, Tab } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import IconButton from '@mui/material/IconButton';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import './App.css'
+import { useNavigate } from 'react-router-dom';
 
 interface Payment{
   id: number;
   payerId: 'user1' | 'user2';
   title: string;
   amount: number;
+  user1expense: number;
+  user2expense: number;
+
 }
 
 const MainPage = () => {
+
+  const navigate = useNavigate();
+
+  const [tabValue, setTabValue] = useState<number>(0);
 
   const settings = JSON.parse(localStorage.getItem('WARIKAN_SETTINGS') || '{"title":"旅行","name1":"ユーザーA","name2":"ユーザーB"}');
   const { title, name1, name2 } = settings;
@@ -43,6 +52,8 @@ const MainPage = () => {
       payerId: inputPayer as 'user1' | 'user2',
       title: inputTitle,
       amount: inputAmount,
+      user1expense: inputAmount / 2,
+      user2expense: inputAmount / 2,
     };
 
     setPayments([...payments, newPayment]);
@@ -86,25 +97,20 @@ const MainPage = () => {
         component="h1" 
         sx={{ mt: 3, mb: 6, fontWeight: 'bold' }}
       >
-        割り勘ツール
+        {title}の精算
       </Typography>
-{/* 
-      <Box sx={{ display:'flex', gap:2, mb:4 }}>
-        <TextField
-          label="1人目の名前"
-          variant="standard"
-          value={name1}
-          onChange={(e) => setName1(e.target.value)}
-          fullWidth
-        />
-        <TextField
-          label="2人目の名前"
-          variant="standard"
-          value={name2}
-          onChange={(e) => setName2(e.target.value)}
-          fullWidth
-        />
-      </Box> */}
+
+      <Tabs
+        value = {tabValue}
+        onChange={(_, newValue) => setTabValue(newValue)}
+        variant="fullWidth"
+        sx={{ mb: 3 }}
+      >
+        <Tab label= "かんたん割り勘" />
+        <Tab label= "詳しく割り勘" />
+      </Tabs>
+
+      {tabValue === 0 && (
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 4 }}>
         <FormControl fullWidth>
@@ -150,6 +156,11 @@ const MainPage = () => {
         </Button>
       </Box>
 
+      )}
+      {tabValue === 1 && (
+      <Box>ここにも書くよ</Box>
+      )}
+
       <Divider />
 
       <List>
@@ -163,7 +174,7 @@ const MainPage = () => {
             }
           >
             <ListItemText 
-              primary={`${p.payerId === 'user1' ? name1 : name2} さんが 「${p.title}」 に${p.amount.toLocaleString()}円 払った`} 
+              primary={`${p.payerId === 'user1' ? name1 : name2} が 「${p.title}」 に${p.amount.toLocaleString()}円 払った`} 
             />
           </ListItem>
         ))}
@@ -193,6 +204,13 @@ const MainPage = () => {
         )
         }
       </Box>
+
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')} sx={{ mb: 2, textAlign: 'left' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+          <span>名前・イベント名を変更する</span>
+          <Typography variant="caption" component="span">※ここまでの精算は保持されます</Typography>
+        </Box>
+      </Button>
       
 
     </Box>

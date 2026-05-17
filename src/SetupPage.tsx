@@ -27,7 +27,7 @@ const SetupPage = () => {
           新規精算
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <TextField label="旅行・イベント名" variant="outlined" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth />
+          <TextField label="イベント名" variant="outlined" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth />
           <TextField label="1人目の名前" variant="outlined" value={n1} onChange={(e) => setN1(e.target.value)} fullWidth />
           <TextField label="2人目の名前" variant="outlined" value={n2} onChange={(e) => setN2(e.target.value)} fullWidth />
           <Button variant="contained" size="large" onClick={handleStart} sx={{ mt: 2 }}>
