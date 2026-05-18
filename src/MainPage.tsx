@@ -37,12 +37,16 @@ const MainPage = () => {
   const[inputTitle, setInputTitle] = useState<string>('');
   const[inputAmount, setInputAmount] = useState<number>(0);
 
+  const[inputExpense1, setInputExpense1] = useState<number>(0);
+  const[inputExpense2, setInputExpense2] = useState<number>(0);
+
+
   useEffect(() => {
     localStorage.setItem('split-bill-data', JSON.stringify(payments));
   }, [payments]);
 
   const handleAddPayment = () => {
-    if (!inputPayer || !inputTitle || inputAmount <= 0 || !name1 || !name2){
+    if (!inputPayer || !inputTitle || inputAmount <= 0 ){
       alert("入力内容を確認してください");
       return;
     }
@@ -63,6 +67,28 @@ const MainPage = () => {
 
   }
 
+  const handleAddDetailedPayment = () => {
+
+    if (!inputPayer || !inputTitle || (inputExpense1 <= 0 && inputExpense2 <= 0) ){
+      alert("入力内容を確認してください");
+      return;
+    }
+    const newPayment: Payment = {
+      id: Date.now(),
+      payerId: inputPayer as 'user1' | 'user2',
+      title: inputTitle,
+      amount: inputExpense1 + inputExpense2,
+      user1expense: inputExpense1,
+      user2expense: inputExpense2,
+    };
+    setPayments([...payments, newPayment]);
+
+    setInputTitle('');
+    setInputExpense1(0);
+    setInputExpense2(0);
+
+  }
+
   const handleDeletePayment = (id: number) => {
     // paymentsのリストの中から、指定されたidと一致しないものを残す
     const newPayments = payments.filter((p)=> p.id !== id);
@@ -73,6 +99,9 @@ const MainPage = () => {
 
   let total1 = 0;
   let total2 = 0;
+  // 詳しい割り勘用
+  let expenseTotal1 = 0;
+  let expenseTotal2 = 0;
 
   payments.forEach((p)=>{
     if (p.payerId === 'user1'){
@@ -80,11 +109,14 @@ const MainPage = () => {
     } else if (p.payerId === 'user2'){ // ここはelseで分岐書かなくても良い
       total2 += p.amount;
     }
+    expenseTotal1 += p.user1expense;
+    expenseTotal2 += p.user2expense;
   })
 
   const totalAmount = total1 + total2;
-  const average = totalAmount / 2;
-  const diff = total1 - average;
+  // 払った額-本来個人が払う金額
+  const user1Balance = total1 - expenseTotal1;
+  const user2Balance = total2 - expenseTotal2;
 
   useEffect(() => {
     localStorage.setItem('split-bill-data', JSON.stringify(payments));
@@ -158,7 +190,53 @@ const MainPage = () => {
 
       )}
       {tabValue === 1 && (
-      <Box>ここにも書くよ</Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 4 }}>
+          <FormControl fullWidth>
+            <InputLabel>払った人</InputLabel>
+            <Select
+              value={inputPayer}
+              label="払った人"
+              onChange={(e) => setInputPayer(e.target.value)}
+            >
+              <MenuItem value="user1">{name1}</MenuItem>
+              <MenuItem value="user2">{name2}</MenuItem>
+            </Select>
+          </FormControl>
+
+          <TextField 
+            label="何に？" 
+            variant="outlined" 
+            value={inputTitle} 
+            onChange={(e) => setInputTitle(e.target.value)} 
+          />
+
+          <TextField 
+            label={`${name1}のかかったお金`} 
+            type="number" 
+            variant="outlined" 
+            fullWidth
+            value={inputExpense1 === 0 ? '' : inputExpense1} 
+            onChange={(e) => setInputExpense1(Number(e.target.value))} 
+          />
+          <TextField 
+            label={`${name2}のかかったお金`} 
+            type="number" 
+            variant="outlined" 
+            fullWidth
+            value={inputExpense2 === 0 ? '' : inputExpense2} 
+            onChange={(e) => setInputExpense2(Number(e.target.value))} 
+          />
+          <Typography variant="body1" sx={{ mt: 1, fontWeight: 'bold', textAlign: 'right' }}>
+            支払総額：{(inputExpense1 + inputExpense2).toLocaleString()} 円
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleAddDetailedPayment}
+          >
+            追加する
+          </Button>
+        </Box>
       )}
 
       <Divider />
@@ -185,24 +263,26 @@ const MainPage = () => {
 
         
           <Typography>合計{totalAmount.toLocaleString()}円</Typography>
-            <Typography>内訳：{name1} さん{total1.toLocaleString()}円、{name2} さん {total2.toLocaleString()}円</Typography>
+            <Typography>払った内訳：{name1} さん{total1.toLocaleString()}円、{name2} さん {total2.toLocaleString()}円</Typography>
+            <Typography>かかった内訳：{name1} さん{expenseTotal1.toLocaleString()}円、{name2} さん {expenseTotal2.toLocaleString()}円</Typography>
       </Box>
 
       <Box sx={{mt:4, p:2, bgcolor:'#f0f7ff', borderRadius: 2  }}>
         <Typography variant="h6">精算結果</Typography>
 
-        {diff > 0?(
+        {user1Balance > 0 ? (
+          // user1が払いすぎている場合 ➔ user2がuser1に渡す
           <Typography>
-            {name2}が{name1}へ<strong>{diff.toLocaleString()}円渡す</strong>
+            {name2} が {name1} へ <strong>{user1Balance.toLocaleString()} 円渡す</strong>
           </Typography>
-        ) : diff < 0 ? (
+        ) : user1Balance < 0 ? (
+          // user1が足りない（＝user2が払いすぎている）場合 ➔ user1がuser2に渡す
           <Typography>
-          {name1}が{name2}へ<strong>{Math.abs(diff).toLocaleString()}円渡す</strong>
+            {name1} が {name2} へ <strong>{Math.abs(user2Balance).toLocaleString()} 円渡す</strong>
           </Typography>
         ) : (
-          <Typography>ピッタリ</Typography>
-        )
-        }
+          <Typography>ピッタリです！</Typography>
+        )}
       </Box>
 
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')} sx={{ mb: 2, textAlign: 'left' }}>
