@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Button, TextField, Select, MenuItem, FormControl, InputLabel, Box, List, ListItem, ListItemText, Divider, Typography, Tabs, Tab } from '@mui/material';
+import { Button, TextField, Select, MenuItem, FormControl, InputLabel, Box, List, ListItem, ListItemText, Divider, Typography, Tabs, Tab, Dialog, DialogTitle } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import IconButton from '@mui/material/IconButton';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import './App.css'
 import { useNavigate } from 'react-router-dom';
 
@@ -14,7 +15,6 @@ interface Payment{
   amount: number;
   user1expense: number;
   user2expense: number;
-
 }
 
 const MainPage = () => {
@@ -36,9 +36,15 @@ const MainPage = () => {
   const[inputPayer, setInputPayer] = useState<string>('user1');
   const[inputTitle, setInputTitle] = useState<string>('');
   const[inputAmount, setInputAmount] = useState<number>(0);
-
   const[inputExpense1, setInputExpense1] = useState<number>(0);
   const[inputExpense2, setInputExpense2] = useState<number>(0);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+
+  const [dialogTitle, setDialogTitle] = useState<string>('');
+  const [dialogAmount, setDialogAmount] = useState<number>(0);
+  const [dialogExpense1, setDialogExpense1] = useState<number>(0);
+  const [dialogExpense2, setDialogExpense2] = useState<number>(0);
 
 
   useEffect(() => {
@@ -91,10 +97,62 @@ const MainPage = () => {
 
   const handleDeletePayment = (id: number) => {
     // paymentsのリストの中から、指定されたidと一致しないものを残す
+    const result = confirm("本当に削除しますか？");
+
+    if(!result) return;
+
     const newPayments = payments.filter((p)=> p.id !== id);
 
     // 新しいリストでstateを更新
     setPayments(newPayments);
+  }
+
+  const handleEditPayment =  (payment: Payment) => {
+    // 編集データのIDをstateに入れる
+    setEditingId(payment.id);
+
+    // 2
+    setInputPayer(payment.payerId);
+    // setInputTitle(payment.title);
+    setDialogTitle(payment.title);
+
+    if(payment.user1expense === payment.amount / 2){
+      setTabValue(0);
+      setDialogAmount(payment.amount);
+    } else {
+      setTabValue(1);
+      setDialogExpense1(payment.user1expense);
+      setDialogExpense2(payment.user2expense);
+    }
+    setIsDialogOpen(true);
+  }
+
+  const handleSaveEdit = () => {
+    if (editingId === null) return;
+
+    const updatePayment:Payment = {
+      id: editingId,
+      payerId: inputPayer as 'user1' | 'user2',
+      title: dialogTitle,
+      amount: tabValue === 0 ? dialogAmount : dialogExpense1 + dialogExpense2,
+      user1expense: tabValue === 0 ? dialogAmount/2 : dialogExpense1,
+      user2expense: tabValue === 0 ? dialogAmount/2 : dialogExpense2
+    }
+
+    const newPayments = payments.map((p)=>{
+      if (p.id === editingId){
+        return updatePayment;
+      }
+      return p;
+    })
+
+    setPayments(newPayments);
+    setIsDialogOpen(false);
+    setEditingId(null);
+    setDialogTitle('');
+    setDialogAmount(0);
+    setDialogExpense1(0);
+    setDialogExpense2(0);
   }
 
   let total1 = 0;
@@ -183,6 +241,7 @@ const MainPage = () => {
           variant="contained" 
           startIcon={<AddIcon />} 
           onClick={handleAddPayment}
+          sx={{ borderRadius: '999px' }} 
         >
           追加する
         </Button>
@@ -233,6 +292,7 @@ const MainPage = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleAddDetailedPayment}
+            sx={{ borderRadius: '999px' }} 
           >
             追加する
           </Button>
@@ -246,9 +306,15 @@ const MainPage = () => {
           <ListItem
             key={p.id}
             secondaryAction={ // リストの右端にボタンを置く設定
-              <IconButton edge="end" aria-label="delete" onClick={() => handleDeletePayment(p.id)}>
-                <DeleteIcon />
-              </IconButton>
+              <Box>
+                <IconButton edge="end" aria-label="delete" onClick={() => handleEditPayment(p)}>
+                  <EditIcon />
+                </IconButton>
+
+                <IconButton edge="end" aria-label="delete" onClick={() => handleDeletePayment(p.id)}>
+                  <DeleteIcon />
+                </IconButton>
+              </Box>
             }
           >
             <ListItemText 
@@ -258,7 +324,7 @@ const MainPage = () => {
         ))}
       </List>
 
-      <Box sx={{mt:4, p:2, bgcolor:'#f0f7ff', borderRadius: 2  }}>
+      <Box sx={{mt:4, p:2, bgcolor:'#f0f7ff', borderRadius: 4  }}>
         <Typography variant="h6">合計金額</Typography>
 
         
@@ -267,7 +333,7 @@ const MainPage = () => {
             <Typography>かかった内訳：{name1} さん{expenseTotal1.toLocaleString()}円、{name2} さん {expenseTotal2.toLocaleString()}円</Typography>
       </Box>
 
-      <Box sx={{mt:4, p:2, bgcolor:'#f0f7ff', borderRadius: 2  }}>
+      <Box sx={{mt:4, p:2, bgcolor:'#f0f7ff', borderRadius: 4  }}>
         <Typography variant="h6">精算結果</Typography>
 
         {user1Balance > 0 ? (
@@ -291,6 +357,70 @@ const MainPage = () => {
           <Typography variant="caption" component="span">※ここまでの精算は保持されます</Typography>
         </Box>
       </Button>
+
+      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>精算を編集する</DialogTitle>
+        <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            ※{tabValue === 0 ? 'かんたん割り勘' : '詳しく割り勘'}モードで編集中
+          </Typography>
+
+          <TextField 
+            label="何に？" 
+            fullWidth 
+            value={dialogTitle} 
+            onChange={(e) => setDialogTitle(e.target.value)} 
+          />
+
+          {tabValue === 0 ? (
+            <TextField 
+              label="金額" 
+              type="number" 
+              fullWidth 
+              value={dialogAmount === 0 ? '' : dialogAmount} 
+              onChange={(e) => setDialogAmount(Number(e.target.value))} 
+            />
+          ) : (
+            <>
+              <TextField 
+                label={`${name1}の負担`} 
+                type="number" 
+                fullWidth 
+                value={dialogExpense1 === 0 ? '' : dialogExpense1} 
+                onChange={(e) => setDialogExpense1(Number(e.target.value))} 
+              />
+              <TextField 
+                label={`${name2}の負担`} 
+                type="number" 
+                fullWidth 
+                value={dialogExpense2 === 0 ? '' : dialogExpense2} 
+                onChange={(e) => setDialogExpense2(Number(e.target.value))} 
+              />
+            </>
+          )}
+
+          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+            <Button variant="contained" fullWidth onClick={handleSaveEdit} sx={{ borderRadius: '999px' }} >
+              上書き保存
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => {
+                setIsDialogOpen(false);
+                setEditingId(null);
+                setDialogTitle('');
+                setDialogAmount(0);
+                setDialogExpense1(0);
+                setDialogExpense2(0);
+              }}
+              sx={{ borderRadius: '999px' }} 
+              >
+              キャンセル
+            </Button>
+        </Box>
+        </Box>
+      </Dialog>
       
 
     </Box>
