@@ -120,8 +120,8 @@ const MainPage = () => {
   const handleAllDeletePayment = () =>{
     const result = confirm("本当に全ての精算履歴を削除しますか？");
     if (!result) return;
-    setPayments([]);
     localStorage.removeItem('split-bill-data');
+    setPayments([]);
     navigate('/');
   }
 
