@@ -45,6 +45,7 @@ const MainPage = () => {
   const [dialogAmount, setDialogAmount] = useState<number>(0);
   const [dialogExpense1, setDialogExpense1] = useState<number>(0);
   const [dialogExpense2, setDialogExpense2] = useState<number>(0);
+  const [dialogPayer, setDialogPayer] = useState<string>('user1');
 
 
   useEffect(() => {
@@ -52,11 +53,15 @@ const MainPage = () => {
   }, [payments]);
 
   const handleAddPayment = () => {
-    if (!inputPayer || !inputTitle || inputAmount <= 0 ){
-      alert("入力内容を確認してください");
+    if (inputTitle.trim() === '') {
+      alert("「何に？」を入力してください");
       return;
     }
-
+    if (inputAmount <= 0) {
+      alert("金額には0より大きい数値を入力してください");
+      return;
+    }
+   
     const newPayment: Payment = {
       id: Date.now(),
       payerId: inputPayer as 'user1' | 'user2',
@@ -75,10 +80,15 @@ const MainPage = () => {
 
   const handleAddDetailedPayment = () => {
 
-    if (!inputPayer || !inputTitle || (inputExpense1 <= 0 && inputExpense2 <= 0) ){
-      alert("入力内容を確認してください");
+    if (inputTitle.trim() === '') {
+      alert("「何に？」を入力してください");
       return;
     }
+    if (inputExpense1 + inputExpense2 <= 0) {
+      alert("かかったお金を入力してください");
+      return;
+    }
+
     const newPayment: Payment = {
       id: Date.now(),
       payerId: inputPayer as 'user1' | 'user2',
@@ -107,13 +117,20 @@ const MainPage = () => {
     setPayments(newPayments);
   }
 
+  const handleAllDeletePayment = () =>{
+    const result = confirm("本当に全ての精算履歴を削除しますか？");
+    if (!result) return;
+    setPayments([]);
+    localStorage.removeItem('split-bill-data');
+    navigate('/');
+  }
+
   const handleEditPayment =  (payment: Payment) => {
     // 編集データのIDをstateに入れる
     setEditingId(payment.id);
 
     // 2
-    setInputPayer(payment.payerId);
-    // setInputTitle(payment.title);
+    setDialogPayer(payment.payerId);
     setDialogTitle(payment.title);
 
     if(payment.user1expense === payment.amount / 2){
@@ -130,9 +147,24 @@ const MainPage = () => {
   const handleSaveEdit = () => {
     if (editingId === null) return;
 
+    if (dialogTitle === '') {
+      alert("「何に？」を入力してください");
+      return; 
+    }
+
+    if (tabValue === 0){
+      if (dialogAmount <= 0) {
+        alert("金額を正しく入力してください");
+        return;
+      } if (dialogExpense1 <= 0 && dialogExpense2 <= 0) {
+        alert("負担額を入力してください");
+        return;
+      }
+    }
+
     const updatePayment:Payment = {
       id: editingId,
-      payerId: inputPayer as 'user1' | 'user2',
+      payerId: dialogPayer as 'user1' | 'user2',
       title: dialogTitle,
       amount: tabValue === 0 ? dialogAmount : dialogExpense1 + dialogExpense2,
       user1expense: tabValue === 0 ? dialogAmount/2 : dialogExpense1,
@@ -153,6 +185,7 @@ const MainPage = () => {
     setDialogAmount(0);
     setDialogExpense1(0);
     setDialogExpense2(0);
+    setDialogPayer('user1');
   }
 
   let total1 = 0;
@@ -175,10 +208,6 @@ const MainPage = () => {
   // 払った額-本来個人が払う金額
   const user1Balance = total1 - expenseTotal1;
   const user2Balance = total2 - expenseTotal2;
-
-  useEffect(() => {
-    localStorage.setItem('split-bill-data', JSON.stringify(payments));
-  }, [payments]);
 
   return (
     <Box sx={{ p: 3, maxWidth: 500, margin: '0 auto' }}>
@@ -358,12 +387,37 @@ const MainPage = () => {
         </Box>
       </Button>
 
+      {payments.length > 0 && (
+        <Button 
+          variant="outlined" 
+          color="error" 
+          fullWidth
+          onClick={handleAllDeletePayment}
+          sx={{ mt: 1, mb: 4, borderRadius: '999px' }}
+          
+        >
+          すべての履歴をリセットする
+        </Button>
+      )}
+
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>精算を編集する</DialogTitle>
         <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Typography variant="body2" color="text.secondary">
             ※{tabValue === 0 ? 'かんたん割り勘' : '詳しく割り勘'}モードで編集中
           </Typography>
+
+          <FormControl fullWidth>
+            <InputLabel>払った人</InputLabel>
+            <Select
+              value={dialogPayer}
+              label="払った人"
+              onChange={(e) => setDialogPayer(e.target.value)}
+            >
+              <MenuItem value="user1">{name1}</MenuItem>
+              <MenuItem value="user2">{name2}</MenuItem>
+            </Select>
+          </FormControl>
 
           <TextField 
             label="何に？" 
@@ -413,6 +467,7 @@ const MainPage = () => {
                 setDialogAmount(0);
                 setDialogExpense1(0);
                 setDialogExpense2(0);
+                setDialogPayer('user1');
               }}
               sx={{ borderRadius: '999px' }} 
               >
