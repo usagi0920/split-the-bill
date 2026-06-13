@@ -156,7 +156,9 @@ const MainPage = () => {
       if (dialogAmount <= 0) {
         alert("金額を正しく入力してください");
         return;
-      } if (dialogExpense1 <= 0 && dialogExpense2 <= 0) {
+      }
+    } else {
+      if (dialogExpense1 <= 0 && dialogExpense2 <= 0) {
         alert("負担額を入力してください");
         return;
       }
