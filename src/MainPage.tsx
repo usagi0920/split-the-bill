@@ -7,9 +7,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import './App.css'
 import { useNavigate } from 'react-router-dom';
+// Firebase
+import { db } from './firebase';
+import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, writeBatch } from 'firebase/firestore';
+
 
 interface Payment{
-  id: number;
+  id: string;
   payerId: 'user1' | 'user2';
   title: string;
   amount: number;
@@ -38,7 +42,7 @@ const MainPage = () => {
   const[inputAmount, setInputAmount] = useState<number>(0);
   const[inputExpense1, setInputExpense1] = useState<number>(0);
   const[inputExpense2, setInputExpense2] = useState<number>(0);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
 
   const [dialogTitle, setDialogTitle] = useState<string>('');
@@ -47,12 +51,30 @@ const MainPage = () => {
   const [dialogExpense2, setDialogExpense2] = useState<number>(0);
   const [dialogPayer, setDialogPayer] = useState<string>('user1');
 
-
   useEffect(() => {
-    localStorage.setItem('split-bill-data', JSON.stringify(payments));
-  }, [payments]);
+    const q = query(collection(db, "payments"), orderBy("createdAt", "desc"));
 
-  const handleAddPayment = () => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      
+      const firebasePayments = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          payerId: data.payerId,
+          title: data.title,
+          amount: data.amount,
+          user1expense: data.user1expense,
+          user2expense: data.user2expense,
+        } as Payment;
+      });
+
+      setPayments(firebasePayments);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleAddPayment = async() => {
     if (inputTitle.trim() === '') {
       alert("「何に？」を入力してください");
       return;
@@ -61,24 +83,31 @@ const MainPage = () => {
       alert("金額には0より大きい数値を入力してください");
       return;
     }
-   
-    const newPayment: Payment = {
-      id: Date.now(),
+
+    const newPaymentData = {
       payerId: inputPayer as 'user1' | 'user2',
       title: inputTitle,
       amount: inputAmount,
       user1expense: inputAmount / 2,
       user2expense: inputAmount / 2,
+      createdAt: Date.now(),
     };
 
-    setPayments([...payments, newPayment]);
+    try {
+      await addDoc(collection(db, "payments"), newPaymentData);
 
-    setInputTitle('');
-    setInputAmount(0);
+      setInputTitle('');
+      setInputAmount(0);
+      
+    } catch (error) {
+      console.error("Firebaseへの保存に失敗しました:", error);
+      alert("通信エラーが発生しました");
+    }
+
 
   }
 
-  const handleAddDetailedPayment = () => {
+  const handleAddDetailedPayment = async () => {
 
     if (inputTitle.trim() === '') {
       alert("「何に？」を入力してください");
@@ -89,47 +118,70 @@ const MainPage = () => {
       return;
     }
 
-    const newPayment: Payment = {
-      id: Date.now(),
+    const newPaymentData = {
       payerId: inputPayer as 'user1' | 'user2',
       title: inputTitle,
       amount: inputExpense1 + inputExpense2,
       user1expense: inputExpense1,
       user2expense: inputExpense2,
+      createdAt: Date.now(),
     };
-    setPayments([...payments, newPayment]);
 
-    setInputTitle('');
-    setInputExpense1(0);
-    setInputExpense2(0);
+    try {
+      await addDoc(collection(db, "payments"), newPaymentData);
+
+      // 保存が成功したら、入力欄をリセット
+      setInputTitle('');
+      setInputExpense1(0);
+      setInputExpense2(0);
+
+    } catch (error) {
+      console.error("Firebaseへの保存に失敗しました:", error);
+      alert("通信エラーが発生しました");
+    }
 
   }
 
-  const handleDeletePayment = (id: number) => {
+  const handleDeletePayment = async (id: string) => {
     // paymentsのリストの中から、指定されたidと一致しないものを残す
     const result = confirm("本当に削除しますか？");
-
     if(!result) return;
 
-    const newPayments = payments.filter((p)=> p.id !== id);
+    try {
+      await deleteDoc(doc(db, "payments", id));
 
-    // 新しいリストでstateを更新
-    setPayments(newPayments);
+    } catch (error) {
+      console.error("削除に失敗しました:", error);
+      alert("通信エラーが発生しました");
+    }
   }
 
-  const handleAllDeletePayment = () =>{
+  const handleAllDeletePayment = async() =>{
     const result = confirm("本当に全ての精算履歴を削除しますか？");
     if (!result) return;
-    localStorage.removeItem('split-bill-data');
-    setPayments([]);
-    navigate('/');
+
+    try {
+      const batch = writeBatch(db);
+
+      payments.forEach((p) => {
+        const docRef = doc(db, "payments", p.id);
+        batch.delete(docRef);
+      });
+
+      await batch.commit();
+
+      navigate('/');
+
+    } catch (error) {
+      console.error("全削除に失敗しました:", error);
+      alert("通信エラーが発生しました");
+    }
+
   }
 
   const handleEditPayment =  (payment: Payment) => {
-    // 編集データのIDをstateに入れる
     setEditingId(payment.id);
 
-    // 2
     setDialogPayer(payment.payerId);
     setDialogTitle(payment.title);
 
@@ -144,7 +196,7 @@ const MainPage = () => {
     setIsDialogOpen(true);
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async() => {
     if (editingId === null) return;
 
     if (dialogTitle === '') {
@@ -173,21 +225,29 @@ const MainPage = () => {
       user2expense: tabValue === 0 ? dialogAmount/2 : dialogExpense2
     }
 
-    const newPayments = payments.map((p)=>{
-      if (p.id === editingId){
-        return updatePayment;
-      }
-      return p;
-    })
+    const updatePaymentData = {
+      payerId: dialogPayer as 'user1' | 'user2',
+      title: dialogTitle,
+      amount: tabValue === 0 ? dialogAmount : dialogExpense1 + dialogExpense2,
+      user1expense: tabValue === 0 ? dialogAmount/2 : dialogExpense1,
+      user2expense: tabValue === 0 ? dialogAmount/2 : dialogExpense2
+    }
 
-    setPayments(newPayments);
-    setIsDialogOpen(false);
-    setEditingId(null);
-    setDialogTitle('');
-    setDialogAmount(0);
-    setDialogExpense1(0);
-    setDialogExpense2(0);
-    setDialogPayer('user1');
+    try {
+      await updateDoc(doc(db, "payments", editingId), updatePaymentData);
+
+      setIsDialogOpen(false);
+      setEditingId(null);
+      setDialogTitle('');
+      setDialogAmount(0);
+      setDialogExpense1(0);
+      setDialogExpense2(0);
+      setDialogPayer('user1');
+
+    } catch (error) {
+      console.error("上書き保存に失敗しました:", error);
+      alert("通信エラーが発生しました");
+    }
   }
 
   let total1 = 0;
@@ -199,7 +259,7 @@ const MainPage = () => {
   payments.forEach((p)=>{
     if (p.payerId === 'user1'){
       total1 += p.amount;
-    } else if (p.payerId === 'user2'){ // ここはelseで分岐書かなくても良い
+    } else if (p.payerId === 'user2'){
       total2 += p.amount;
     }
     expenseTotal1 += p.user1expense;
