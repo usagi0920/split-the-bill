@@ -5,11 +5,12 @@ import IconButton from '@mui/material/IconButton';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'; 
 import './App.css'
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 // Firebase
 import { db } from './firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, writeBatch, getDoc } from 'firebase/firestore';
 
 
 interface Payment{
@@ -24,19 +25,15 @@ interface Payment{
 const MainPage = () => {
 
   const navigate = useNavigate();
+  const { roomId } = useParams<{ roomId: string }>();
 
   const [tabValue, setTabValue] = useState<number>(0);
 
-  const settings = JSON.parse(localStorage.getItem('WARIKAN_SETTINGS') || '{"title":"旅行","name1":"ユーザーA","name2":"ユーザーB"}');
-  const { title, name1, name2 } = settings;
+  const [roomTitle, setRoomTitle] = useState<string>('読み込み中...');
+  const [name1, setName1] = useState<string>('ユーザーA');
+  const [name2, setName2] = useState<string>('ユーザーB');
 
-  const[payments, setPayments] = useState<Payment[]>(() => {
-    const savedData = localStorage.getItem('split-bill-data');
-    if (savedData){
-      return JSON.parse(savedData);
-    }
-    return[];
-  });
+  const [payments, setPayments] = useState<Payment[]>([]);
   const[inputPayer, setInputPayer] = useState<string>('user1');
   const[inputTitle, setInputTitle] = useState<string>('');
   const[inputAmount, setInputAmount] = useState<number>(0);
@@ -45,6 +42,8 @@ const MainPage = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
 
+  const [isWelcomeOpen, setIsWelcomeOpen] = useState<boolean>(true);
+
   const [dialogTitle, setDialogTitle] = useState<string>('');
   const [dialogAmount, setDialogAmount] = useState<number>(0);
   const [dialogExpense1, setDialogExpense1] = useState<number>(0);
@@ -52,7 +51,35 @@ const MainPage = () => {
   const [dialogPayer, setDialogPayer] = useState<string>('user1');
 
   useEffect(() => {
-    const q = query(collection(db, "payments"), orderBy("createdAt", "desc"));
+    if (!roomId) return;
+
+    const fetchRoomSettings = async () => {
+      try {
+        const roomDocRef = doc(db, "rooms", roomId);
+        const roomDocSnap = await getDoc(roomDocRef);
+
+        if (roomDocSnap.exists()) {
+          const data = roomDocSnap.data();
+          setRoomTitle(data.title || '旅行');
+          setName1(data.name1 || 'ユーザーA');
+          setName2(data.name2 || 'ユーザーB');
+        } else {
+          setRoomTitle('部屋が見つかりません');
+        }
+      } catch (error) {
+        console.error("部屋情報の取得に失敗しました:", error);
+      }
+    };
+
+    fetchRoomSettings();
+  }, [roomId]);
+  
+  
+  useEffect(() => {
+    if (!roomId) return;
+
+    const paymentsCollectionRef = collection(db, "rooms", roomId, "payments");
+    const q = query(paymentsCollectionRef, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       
@@ -72,7 +99,7 @@ const MainPage = () => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [roomId]);
 
   const handleAddPayment = async() => {
     if (inputTitle.trim() === '') {
@@ -94,7 +121,8 @@ const MainPage = () => {
     };
 
     try {
-      await addDoc(collection(db, "payments"), newPaymentData);
+      const paymentsCollectionRef = collection(db, "rooms", roomId!, "payments");
+      await addDoc(paymentsCollectionRef, newPaymentData);
 
       setInputTitle('');
       setInputAmount(0);
@@ -109,6 +137,7 @@ const MainPage = () => {
 
   const handleAddDetailedPayment = async () => {
 
+    if (!roomId) return;
     if (inputTitle.trim() === '') {
       alert("「何に？」を入力してください");
       return;
@@ -128,7 +157,8 @@ const MainPage = () => {
     };
 
     try {
-      await addDoc(collection(db, "payments"), newPaymentData);
+      const paymentsCollectionRef = collection(db, "rooms", roomId!, "payments");
+      await addDoc(paymentsCollectionRef, newPaymentData);
 
       // 保存が成功したら、入力欄をリセット
       setInputTitle('');
@@ -148,7 +178,8 @@ const MainPage = () => {
     if(!result) return;
 
     try {
-      await deleteDoc(doc(db, "payments", id));
+      const paymentDocRef = doc(db, "rooms", roomId!, "payments", id);
+      await deleteDoc(paymentDocRef);
 
     } catch (error) {
       console.error("削除に失敗しました:", error);
@@ -164,7 +195,7 @@ const MainPage = () => {
       const batch = writeBatch(db);
 
       payments.forEach((p) => {
-        const docRef = doc(db, "payments", p.id);
+        const docRef = doc(db, "rooms", roomId!, "payments", p.id);
         batch.delete(docRef);
       });
 
@@ -234,7 +265,8 @@ const MainPage = () => {
     }
 
     try {
-      await updateDoc(doc(db, "payments", editingId), updatePaymentData);
+      const paymentDocRef = doc(db, "rooms", roomId!, "payments", editingId);
+      await updateDoc(paymentDocRef, updatePaymentData);
 
       setIsDialogOpen(false);
       setEditingId(null);
@@ -278,8 +310,36 @@ const MainPage = () => {
         component="h1" 
         sx={{ mt: 3, mb: 6, fontWeight: 'bold' }}
       >
-        {title}の精算
+        {roomTitle}の精算
       </Typography>
+
+      <Box sx={{ 
+        mb: 4, 
+        p: 2, 
+        border: '1px dashed #2196f3', 
+        borderRadius: 3, 
+        bgcolor: '#f4f9ff',
+        textAlign: 'center'
+      }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 'bold' }}>
+          メンバーにURLを共有する
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', bgcolor: '#fff', p: 1, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+          <Typography variant="caption" noWrap sx={{ flexGrow: 1, textAlign: 'left', color: 'text.secondary', px: 1 }}>
+            {window.location.href}
+          </Typography>
+          <IconButton 
+            color="primary"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href);
+              alert("URLをコピーしました！");
+            }}
+            sx={{ bgcolor: '#e3f2fd', '&:hover': { bgcolor: '#bbdefb' }, borderRadius: 2 }}
+          >
+            <ContentCopyIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      </Box>    
 
       <Tabs
         value = {tabValue}
@@ -538,7 +598,51 @@ const MainPage = () => {
         </Box>
         </Box>
       </Dialog>
-      
+
+      <Dialog open={isWelcomeOpen} onClose={() => setIsWelcomeOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 'bold', textAlign: 'center', pt: 3 }}>
+          部屋が作成されました！
+        </DialogTitle>
+        <Box sx={{ p: 3, pt: 1, display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            一緒に割り勘をするメンバーに、<br />このURLを共有してね！
+          </Typography>
+
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 1, 
+            alignItems: 'center', 
+            bgcolor: '#f4f9ff', 
+            p: 1.5, 
+            borderRadius: 2, 
+            border: '1px dashed #2196f3',
+            mt: 1
+          }}>
+            <Typography variant="caption" noWrap sx={{ flexGrow: 1, textAlign: 'left', color: 'text.secondary' }}>
+              {window.location.href}
+            </Typography>
+            <IconButton 
+              color="primary"
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                alert("URLをコピーしました");
+              }}
+              sx={{ bgcolor: '#e3f2fd', '&:hover': { bgcolor: '#bbdefb' }, borderRadius: 2 }}
+            >
+              <ContentCopyIcon fontSize="small" />
+            </IconButton>
+          </Box>
+
+          <Button 
+            variant="outlined" 
+            fullWidth 
+            onClick={() => setIsWelcomeOpen(false)} 
+            sx={{ mt: 2, borderRadius: '999px' }}
+          >
+            閉じて精算をはじめる
+          </Button>
+        </Box>
+      </Dialog>
 
     </Box>
   )

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { TextField, Button, Box, Typography, Container, Paper } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { db } from './firebase';
+import { collection, doc, setDoc } from 'firebase/firestore';
 
 const SetupPage = () => {
   const navigate = useNavigate();
@@ -8,16 +10,30 @@ const SetupPage = () => {
   const [n1, setN1] = useState('ユーザーA');
   const [n2, setN2] = useState('ユーザーB');
 
-  const handleStart = () => {
+  const handleStart = async() => {
     if (!title || !n1 || !n2) {
       alert("すべて入力してください！");
       return;
     }
-    // 設定を保存
-    const settings = { title, name1: n1, name2: n2 };
-    localStorage.setItem('WARIKAN_SETTINGS', JSON.stringify(settings));
-    // 精算ページへ
-    navigate('/calc');
+    try {
+      const newRoomRef = doc(collection(db, "rooms")); 
+      const roomId = newRoomRef.id;
+
+      const roomSettings = {
+        title: title,
+        name1: n1,
+        name2: n2,
+        createdAt: Date.now()
+      };
+
+      await setDoc(newRoomRef, roomSettings);
+
+      navigate(`/room/${roomId}`);
+
+    } catch (error) {
+      console.error("部屋の作成に失敗しました:", error);
+      alert("通信エラーが発生しました");
+    }
   };
 
   return (

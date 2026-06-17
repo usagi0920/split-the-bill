@@ -8,7 +8,7 @@ function App() {
         {/* 最初に表示されるページ */}
         <Route path="/" element={<SetupPage />} />
         {/* 精算を行うページ */}
-        <Route path="/calc" element={<MainPage />} />
+        <Route path="/room/:roomId" element={<MainPage />} />
       </Routes>
   );
 }
