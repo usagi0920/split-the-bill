@@ -227,15 +227,15 @@ const MainPage = () => {
     setIsDialogOpen(true);
   }
 
-  const handleSaveEdit = async() => {
-    if (editingId === null) return;
+  const handleSaveEdit = async () => {
+    if (!roomId || editingId === null) return;
 
     if (dialogTitle === '') {
       alert("「何に？」を入力してください");
-      return; 
+      return;
     }
 
-    if (tabValue === 0){
+    if (tabValue === 0) {
       if (dialogAmount <= 0) {
         alert("金額を正しく入力してください");
         return;
@@ -247,27 +247,24 @@ const MainPage = () => {
       }
     }
 
-    const updatePayment:Payment = {
-      id: editingId,
-      payerId: dialogPayer as 'user1' | 'user2',
-      title: dialogTitle,
-      amount: tabValue === 0 ? dialogAmount : dialogExpense1 + dialogExpense2,
-      user1expense: tabValue === 0 ? dialogAmount/2 : dialogExpense1,
-      user2expense: tabValue === 0 ? dialogAmount/2 : dialogExpense2
-    }
+    const isEasyTab = tabValue === 0;
+    const finalAmount = isEasyTab ? dialogAmount : dialogExpense1 + dialogExpense2;
+    const finalUser1Expense = isEasyTab ? dialogAmount / 2 : dialogExpense1;
+    const finalUser2Expense = isEasyTab ? dialogAmount / 2 : dialogExpense2;
 
     const updatePaymentData = {
       payerId: dialogPayer as 'user1' | 'user2',
       title: dialogTitle,
-      amount: tabValue === 0 ? dialogAmount : dialogExpense1 + dialogExpense2,
-      user1expense: tabValue === 0 ? dialogAmount/2 : dialogExpense1,
-      user2expense: tabValue === 0 ? dialogAmount/2 : dialogExpense2
-    }
+      amount: finalAmount,
+      user1expense: finalUser1Expense,
+      user2expense: finalUser2Expense
+    };
 
     try {
-      const paymentDocRef = doc(db, "rooms", roomId!, "payments", editingId);
+      const paymentDocRef = doc(db, "rooms", roomId, "payments", editingId);
       await updateDoc(paymentDocRef, updatePaymentData);
 
+      // 画面を閉じて入力欄をきれいにリセット
       setIsDialogOpen(false);
       setEditingId(null);
       setDialogTitle('');
@@ -275,12 +272,11 @@ const MainPage = () => {
       setDialogExpense1(0);
       setDialogExpense2(0);
       setDialogPayer('user1');
-
     } catch (error) {
       console.error("上書き保存に失敗しました:", error);
       alert("通信エラーが発生しました");
     }
-  }
+  };
 
   let total1 = 0;
   let total2 = 0;
