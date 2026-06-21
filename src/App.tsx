@@ -7,6 +7,8 @@ function App() {
       <Routes>
         {/* 最初に表示されるページ */}
         <Route path="/" element={<SetupPage />} />
+        {/* 名前の編集ページ */}
+        <Route path="/edit/:roomId" element={<SetupPage />} />
         {/* 精算を行うページ */}
         <Route path="/room/:roomId" element={<MainPage />} />
       </Routes>

@@ -498,7 +498,7 @@ const MainPage = () => {
         )}
       </Box>
 
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')} sx={{ mb: 2, textAlign: 'left' }}>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`/edit/${roomId}`)} sx={{ mb: 2, textAlign: 'left' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
           <span>名前・イベント名を変更する</span>
           <Typography variant="caption" component="span">※ここまでの精算は保持されます</Typography>
