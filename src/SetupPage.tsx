@@ -33,27 +33,22 @@ const SetupPage = () => {
     fetchRoomSettings();
   }, [roomId]);
 
-  const handleStart = async() => {
+  const handleStart = async () => {
     if (!title || !n1 || !n2) {
       alert("すべて入力してください！");
       return;
     }
+
     try {
-      // 編集の場合
       if (roomId) {
         const roomDocRef = doc(db, "rooms", roomId);
-        // 新しく作らず、今の部屋のデータを上書きします
         await updateDoc(roomDocRef, {
           title: title,
           name1: n1,
           name2: n2,
         });
-
-        // 保存できたら、元の割り勘画面に戻る
         navigate(`/room/${roomId}`);
-
       } else {
-        // ➕ URLに roomId がない場合（新規作成モード）
         const newRoomRef = doc(collection(db, "rooms")); 
         const newRoomId = newRoomRef.id;
 
@@ -67,7 +62,6 @@ const SetupPage = () => {
         await setDoc(newRoomRef, roomSettings);
         navigate(`/room/${newRoomId}`);
       }
-
     } catch (error) {
       console.error("処理に失敗しました:", error);
       alert("通信エラーが発生しました");

@@ -12,7 +12,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { db } from './firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, writeBatch, getDoc } from 'firebase/firestore';
 
-
 interface Payment{
   id: string;
   payerId: 'user1' | 'user2';
@@ -50,6 +49,7 @@ const MainPage = () => {
   const [dialogExpense2, setDialogExpense2] = useState<number>(0);
   const [dialogPayer, setDialogPayer] = useState<string>('user1');
 
+  // 1. 部屋の基本情報を取得
   useEffect(() => {
     if (!roomId) return;
 
@@ -74,7 +74,7 @@ const MainPage = () => {
     fetchRoomSettings();
   }, [roomId]);
   
-  
+  // 2. 支払い一覧のリアルタイム監視
   useEffect(() => {
     if (!roomId) return;
 
@@ -82,7 +82,6 @@ const MainPage = () => {
     const q = query(paymentsCollectionRef, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      
       const firebasePayments = snapshot.docs.map((doc) => {
         const data = doc.data();
         return {
@@ -96,6 +95,8 @@ const MainPage = () => {
       });
 
       setPayments(firebasePayments);
+    }, (error) => {
+      console.error("支払い一覧の監視に失敗しました:", error);
     });
 
     return () => unsubscribe();
@@ -131,12 +132,9 @@ const MainPage = () => {
       console.error("Firebaseへの保存に失敗しました:", error);
       alert("通信エラーが発生しました");
     }
-
-
   }
 
   const handleAddDetailedPayment = async () => {
-
     if (!roomId) return;
     if (inputTitle.trim() === '') {
       alert("「何に？」を入力してください");
@@ -160,7 +158,6 @@ const MainPage = () => {
       const paymentsCollectionRef = collection(db, "rooms", roomId!, "payments");
       await addDoc(paymentsCollectionRef, newPaymentData);
 
-      // 保存が成功したら、入力欄をリセット
       setInputTitle('');
       setInputExpense1(0);
       setInputExpense2(0);
@@ -169,11 +166,9 @@ const MainPage = () => {
       console.error("Firebaseへの保存に失敗しました:", error);
       alert("通信エラーが発生しました");
     }
-
   }
 
   const handleDeletePayment = async (id: string) => {
-    // paymentsのリストの中から、指定されたidと一致しないものを残す
     const result = confirm("本当に削除しますか？");
     if(!result) return;
 
@@ -207,7 +202,6 @@ const MainPage = () => {
       console.error("全削除に失敗しました:", error);
       alert("通信エラーが発生しました");
     }
-
   }
 
   const handleEditPayment =  (payment: Payment) => {
@@ -264,7 +258,6 @@ const MainPage = () => {
       const paymentDocRef = doc(db, "rooms", roomId, "payments", editingId);
       await updateDoc(paymentDocRef, updatePaymentData);
 
-      // 画面を閉じて入力欄をきれいにリセット
       setIsDialogOpen(false);
       setEditingId(null);
       setDialogTitle('');
@@ -280,7 +273,6 @@ const MainPage = () => {
 
   let total1 = 0;
   let total2 = 0;
-  // 詳しい割り勘用
   let expenseTotal1 = 0;
   let expenseTotal2 = 0;
 
@@ -295,7 +287,6 @@ const MainPage = () => {
   })
 
   const totalAmount = total1 + total2;
-  // 払った額-本来個人が払う金額
   const user1Balance = total1 - expenseTotal1;
   const user2Balance = total2 - expenseTotal2;
 
@@ -452,7 +443,7 @@ const MainPage = () => {
         {payments.map((p) => (
           <ListItem
             key={p.id}
-            secondaryAction={ // リストの右端にボタンを置く設定
+            secondaryAction={
               <Box>
                 <IconButton edge="end" aria-label="delete" onClick={() => handleEditPayment(p)}>
                   <EditIcon />
@@ -484,12 +475,10 @@ const MainPage = () => {
         <Typography variant="h6">精算結果</Typography>
 
         {user1Balance > 0 ? (
-          // user1が払いすぎている場合 ➔ user2がuser1に渡す
           <Typography>
             {name2} が {name1} へ <strong>{user1Balance.toLocaleString()} 円渡す</strong>
           </Typography>
         ) : user1Balance < 0 ? (
-          // user1が足りない（＝user2が払いすぎている）場合 ➔ user1がuser2に渡す
           <Typography>
             {name1} が {name2} へ <strong>{Math.abs(user2Balance).toLocaleString()} 円渡す</strong>
           </Typography>
@@ -512,7 +501,6 @@ const MainPage = () => {
           fullWidth
           onClick={handleAllDeletePayment}
           sx={{ mt: 1, mb: 4, borderRadius: '999px' }}
-          
         >
           すべての履歴をリセットする
         </Button>
